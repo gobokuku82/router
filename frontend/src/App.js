@@ -61,16 +61,16 @@ function App() {
   }
 
   // 로그인되지 않은 경우 로그인 페이지 표시
-  if (!isLoggedIn) {
-    return (
-      <Router>
-        <Routes>
-          <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Router>
-    );
-  }
+  // if (!isLoggedIn) {
+  //   return (
+  //     <Router>
+  //       <Routes>
+  //         <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+  //         <Route path="*" element={<Navigate to="/login" replace />} />
+  //       </Routes>
+  //     </Router>
+  //   );
+  // }
 
   // 로그인된 경우 메인 애플리케이션 표시
   return (

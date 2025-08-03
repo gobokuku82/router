@@ -2,16 +2,11 @@
 Router Agent - 세션 기반 라우팅 시스템
 동적 도구 생성과 대화 연속성을 지원합니다.
 """
-from typing import Dict, Any, List, TypedDict, Optional, Annotated
-from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import BaseMessage, AIMessage, HumanMessage
+from typing import Dict, Any, List, Optional
 from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
 import logging
 from datetime import datetime
 import uuid
-import json
 import os
 
 from ..employee_agent.employee_agent import EnhancedEmployeeAgent
@@ -20,34 +15,11 @@ from ..client_agent import client_agent
 from ..search_agent import run as search_agent_run
 import asyncio
 
+# 분리된 모듈에서 import
+from .graph import RouterState, create_graph
+from ..tools.router_tools import create_tools_from_config
+
 logger = logging.getLogger(__name__)
-
-
-class RouterState(TypedDict):
-    """Router Agent State"""
-    # 기본 필드
-    messages: List[BaseMessage]
-    user_input: str
-    session_id: str
-    
-    # 세션 관리
-    active_agent: Optional[str]
-    is_continuation: bool
-    
-    # 동적 컨텍스트
-    context: Dict[str, Any]
-    
-    # 결과
-    result: Optional[Dict[str, Any]]
-    error: Optional[str]
-    requires_interrupt: bool
-    agent_type: Optional[str]
-    thread_id: Optional[str]
-    
-    # 추가 정보 (docs_agent용)
-    next_node: Optional[str]
-    doc_type: Optional[str]
-    state_info: Optional[Dict[str, Any]]
 
 
 class RouterAgent:
@@ -132,7 +104,7 @@ class RouterAgent:
         self.sessions: Dict[str, Dict[str, Any]] = {}
         
         # 동적으로 도구 생성
-        self.tools = self._create_tools_from_config()
+        self.tools = create_tools_from_config(self.agents_config, self._execute_agent)
         
         # LLM with tools
         self.llm = ChatOpenAI(
@@ -141,47 +113,54 @@ class RouterAgent:
         ).bind_tools(self.tools)
         
         # Graph 생성
-        self.graph = self._create_graph()
+        self.graph = create_graph(self)
     
-    def _create_tools_from_config(self):
-        """설정에서 도구를 동적으로 생성"""
-        tools = []
+    
+    def _get_agent_descriptions(self) -> List[Dict[str, Any]]:
+        """모든 에이전트의 상세 설명 반환"""
+        descriptions = []
         
         for agent_name, config in self.agents_config.items():
-            # 메타데이터에서 정보 추출
-            metadata = config["metadata"]
-            
-            # 도구 함수 동적 생성
-            def make_tool(name, cfg):
-                # 클로저로 agent_name과 config 캡처
-                def agent_tool(query: Annotated[str, f"{metadata['description'][:50]}..."]) -> Dict[str, Any]:
-                    return self._execute_agent(name, query)
-                
-                # 함수 메타데이터 설정
-                agent_tool.__name__ = f"call_{name}"
-                agent_tool.__doc__ = self._generate_tool_docstring(metadata)
-                
-                return tool(agent_tool)
-            
-            tools.append(make_tool(agent_name, config))
+            if config["instance"] is not None:  # 구현된 에이전트만
+                metadata = config["metadata"]
+                descriptions.append({
+                    "id": agent_name,
+                    "name": self._get_agent_display_name(agent_name),
+                    "description": metadata["description"],
+                    "capabilities": metadata.get("capabilities", []),
+                    "examples": metadata.get("examples", [])
+                })
         
-        return tools
+        return descriptions
     
-    def _generate_tool_docstring(self, metadata: Dict[str, Any]) -> str:
-        """메타데이터에서 도구 설명 생성"""
-        docstring = f"{metadata['description']}\n\n"
+    def _get_agent_display_name(self, agent_name: str) -> str:
+        """에이전트 표시 이름 반환"""
+        display_names = {
+            "docs_agent": "📄 문서 작성 도우미",
+            "employee_agent": "👥 직원 정보 조회",
+            "client_agent": "🏢 거래처 분석",
+            "search_agent": "🔍 정보 검색"
+        }
+        return display_names.get(agent_name, agent_name)
+    
+    def _generate_help_message(self) -> str:
+        """도움말 메시지 생성"""
+        message = "죄송합니다. 요청하신 작업을 정확히 이해하지 못했습니다.\n\n"
+        message += "다음과 같은 작업을 도와드릴 수 있습니다:\n\n"
         
-        if metadata.get("capabilities"):
-            docstring += "주요 기능:\n"
-            for cap in metadata["capabilities"]:
-                docstring += f"- {cap}\n"
+        for agent_name, config in self.agents_config.items():
+            if config["instance"] is not None:
+                metadata = config["metadata"]
+                message += f"**{self._get_agent_display_name(agent_name)}**\n"
+                message += f"{metadata['description']}\n"
+                if metadata.get("examples"):
+                    message += "예시:\n"
+                    for ex in metadata["examples"]:
+                        message += f"  - {ex}\n"
+                message += "\n"
         
-        if metadata.get("examples"):
-            docstring += "\n사용 예시:\n"
-            for ex in metadata["examples"]:
-                docstring += f"- {ex}\n"
-        
-        return docstring
+        message += "원하시는 작업을 구체적으로 말씀해주세요."
+        return message
     
     def _execute_agent(self, agent_name: str, query: str) -> Dict[str, Any]:
         """에이전트 실행"""
@@ -279,215 +258,12 @@ class RouterAgent:
             logger.error(f"{agent_name} execution error: {e}")
             return {"success": False, "error": str(e)}
     
-    def _create_graph(self):
-        """LangGraph 워크플로우 생성"""
-        workflow = StateGraph(RouterState)
-        
-        # Tool Node 생성
-        tool_node = ToolNode(self.tools)
-        
-        # 노드 추가
-        workflow.add_node("check_session", self._check_session_node)
-        workflow.add_node("route", self._route_node)
-        workflow.add_node("continue", self._continue_conversation_node)
-        workflow.add_node("tools", tool_node)
-        workflow.add_node("final", self._final_node)
-        
-        # 시작점 설정
-        workflow.set_entry_point("check_session")
-        
-        # 조건부 엣지
-        workflow.add_conditional_edges(
-            "check_session",
-            self._session_router,
-            {
-                "has_session": "continue",
-                "new_conversation": "route"
-            }
-        )
-        
-        workflow.add_conditional_edges(
-            "route",
-            self._route_decision,
-            {
-                "tools": "tools",
-                "final": "final",
-                "error": "final"
-            }
-        )
-        
-        workflow.add_edge("continue", "final")
-        workflow.add_edge("tools", "final")
-        workflow.add_edge("final", END)
-        
-        return workflow.compile()
     
-    def _check_session_node(self, state: RouterState) -> RouterState:
-        """세션 확인 노드"""
-        session_id = state.get("session_id")
-        
-        if session_id and session_id in self.sessions:
-            session = self.sessions[session_id]
-            if session.get("active"):
-                state["is_continuation"] = True
-                state["active_agent"] = session["agent"]
-                state["thread_id"] = session.get("thread_id")
-                state["context"].update(session.get("context", {}))
-            else:
-                state["is_continuation"] = False
-        else:
-            state["is_continuation"] = False
-        
-        return state
     
-    def _session_router(self, state: RouterState) -> str:
-        """세션 라우팅 결정"""
-        if state.get("is_continuation"):
-            return "has_session"
-        return "new_conversation"
     
-    def _route_node(self, state: RouterState) -> RouterState:
-        """LLM 라우팅 노드"""
-        try:
-            # 현재 상태 저장 (tool에서 접근용)
-            self.current_state = state
-            logger.info(f"[ROUTE_NODE] Setting current_state with session_id: {state.get('session_id')}")
-            
-            # 메시지 생성
-            messages = state.get("messages", [])
-            if not messages and state.get("user_input"):
-                messages = [HumanMessage(content=state["user_input"])]
-                state["messages"] = messages
-            
-            # LLM 호출
-            response = self.llm.invoke(messages)
-            
-            # 응답 추가
-            state["messages"].append(response)
-            
-            # Tool call이 없는 경우 처리
-            if not response.tool_calls:
-                state["error"] = "적절한 에이전트를 찾을 수 없습니다."
-            
-            return state
-            
-        except Exception as e:
-            logger.error(f"Route node error: {e}")
-            state["error"] = str(e)
-            return state
     
-    def _route_decision(self, state: RouterState) -> str:
-        """라우팅 결정"""
-        messages = state.get("messages", [])
-        if not messages:
-            return "error"
-        
-        last_message = messages[-1]
-        
-        if state.get("error"):
-            return "error"
-        
-        if isinstance(last_message, AIMessage) and last_message.tool_calls:
-            return "tools"
-        
-        return "final"
     
-    def _continue_conversation_node(self, state: RouterState) -> RouterState:
-        """활성 세션의 대화 계속"""
-        try:
-            session_id = state["session_id"]
-            session = self.sessions[session_id]
-            agent_name = session["agent"]
-            
-            # 에이전트별 처리
-            if agent_name == "docs_agent":
-                agent = self.agents_config[agent_name]["instance"]
-                result = agent.run(user_input=state["user_input"])
-                
-                # 결과 처리
-                if result.get("interrupted"):
-                    # 계속 대화 필요
-                    state["requires_interrupt"] = True
-                    state["result"] = result
-                elif result.get("success"):
-                    # 대화 완료
-                    session["active"] = False
-                    state["result"] = result
-                else:
-                    state["error"] = result.get("error", "Unknown error")
-                    
-            elif agent_name == "employee_agent":
-                agent = self.agents_config[agent_name]["instance"]
-                if hasattr(agent, 'analyze_employee_performance'):
-                    result = agent.analyze_employee_performance(state["user_input"])
-                else:
-                    result = agent.run(state["user_input"])
-                
-                state["result"] = result
-                session["active"] = False  # employee는 단발성
-                
-            else:
-                state["error"] = f"Unknown agent: {agent_name}"
-            
-            state["agent_type"] = agent_name
-            return state
-            
-        except Exception as e:
-            logger.error(f"Continue conversation error: {e}")
-            state["error"] = str(e)
-            return state
     
-    def _final_node(self, state: RouterState) -> RouterState:
-        """최종 처리 노드"""
-        logger.info(f"[FINAL_NODE] Processing final node with requires_interrupt: {state.get('requires_interrupt')}")
-        logger.info(f"[FINAL_NODE] Current state keys: {list(state.keys())}")
-        
-        # Tool 실행 결과 추출
-        messages = state.get("messages", [])
-        
-        # ToolMessage 찾기 (마지막 메시지가 ToolMessage일 가능성이 높음)
-        for i in range(len(messages) - 1, -1, -1):
-            msg = messages[i]
-            
-            # ToolMessage 처리
-            if hasattr(msg, 'name') and hasattr(msg, 'content'):  # ToolMessage의 특징
-                try:
-                    # Tool 반환값 처리
-                    if isinstance(msg.content, str):
-                        result = json.loads(msg.content)
-                    else:
-                        result = msg.content
-                    
-                    state["result"] = result
-                    
-                    # Tool name에서 agent_type 추출
-                    if msg.name and msg.name.startswith('call_'):
-                        state["agent_type"] = msg.name.replace('call_', '')
-                    
-                    # 인터럽트 발생 시 추가 정보를 state에 병합
-                    if isinstance(result, dict) and result.get("interrupted"):
-                        logger.info(f"[FINAL_NODE] Interrupt in result - next_node: {result.get('next_node')}, doc_type: {result.get('doc_type')}")
-                        if result.get("thread_id"):
-                            state["thread_id"] = result["thread_id"]
-                        if result.get("next_node"):
-                            state["next_node"] = result["next_node"]
-                        if result.get("doc_type"):
-                            state["doc_type"] = result["doc_type"]
-                        if result.get("state_info"):
-                            state["state_info"] = result["state_info"]
-                        state["requires_interrupt"] = True
-                    
-                    break  # 첫 번째 ToolMessage를 찾으면 중단
-                    
-                except json.JSONDecodeError:
-                    state["result"] = {"content": msg.content}
-                except Exception as e:
-                    logger.error(f"Tool message processing error: {e}")
-        
-        # 최종 상태 로깅
-        logger.info(f"[FINAL_NODE] Final state - requires_interrupt: {state.get('requires_interrupt')}, next_node: {state.get('next_node')}, doc_type: {state.get('doc_type')}")
-        
-        return state
     
     def run(self, user_input: str, session_id: Optional[str] = None) -> Dict[str, Any]:
         """Router 실행"""
@@ -509,7 +285,8 @@ class RouterAgent:
             thread_id=None,
             next_node=None,
             doc_type=None,
-            state_info=None
+            state_info=None,
+            agent_selection_required=False
         )
         
         try:
@@ -547,6 +324,21 @@ class RouterAgent:
             
             # 정상 결과
             result = final_state.get("result", {})
+            
+            # 디버그 로깅
+            logger.info(f"[RUN] Final state result: {result}")
+            logger.info(f"[RUN] Has help_message: {result.get('help_message') is not None}")
+            
+            # help_message가 있는 경우 특별 처리
+            if result.get("help_message"):
+                logger.info(f"[RUN] Returning help message response")
+                return {
+                    "success": True,
+                    "session_id": session_id,
+                    "response": result["help_message"],
+                    "requires_interrupt": False
+                }
+            
             return {
                 "success": True,
                 "session_id": session_id,

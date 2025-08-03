@@ -105,14 +105,10 @@ const ChatScreen = () => {
   // 초기 안내 메시지
   useEffect(() => {
     const initializeChat = async () => {
-      // 시스템 안내 메시지
-      const systemMessage = {
-        type: 'system',
-        content: '안녕하세요! NaruTalk AI Assistant입니다. 무엇을 도와드릴까요?',
-        timestamp: new Date().toLocaleTimeString()
-      };
+      // 초기에는 메시지를 비워두어 예시 프롬프트가 표시되도록 함
+      // 시스템 메시지 제거
       
-      // 에이전트 선택 메시지 (H2H와 동일한 형태)
+      // 에이전트 선택 메시지 (H2H와 동일한 형태) - 사용하지 않음
       const agentSelectionMessage = {
         type: 'agent_selection',
         content: `안녕하세요! 무엇을 도와드릴까요?
@@ -159,13 +155,13 @@ const ChatScreen = () => {
         if (mostRecentSession.sessionId) {
           await selectChat(mostRecentSession.id);
         } else {
-          // 기본 메시지 표시하고 새 채팅 시작
-          setMessages([systemMessage]);
+          // 메시지를 비워두어 예시 프롬프트가 표시되도록 함
+          setMessages([]);
         }
       } else {
         console.log('📝 세션이 없음, 새 채팅 시작');
-        // 기본 메시지 표시
-        setMessages([systemMessage]);
+        // 메시지를 비워두어 예시 프롬프트가 표시되도록 함
+        setMessages([]);
         startNewChat();
       }
     };
@@ -178,28 +174,8 @@ const ChatScreen = () => {
     const chatId = Date.now().toString();
     const newSessionId = generateSessionId();
     
-    // 시스템 메시지
-    const systemMessage = {
-      type: 'system',
-      content: `안녕하세요! NaruTalk AI Assistant입니다. 무엇을 도와드릴까요?
-
-💼 직원 실적 분석
-   예: "최시우 직원의 실적 조회해줘"
-
-🏥 거래처 분석  
-   예: "미라클의원의 거래처 분석해줘"
-
-🔍 정보 검색
-   예: "출장비 정산 규정 찾아줘"
-
-📄 문서 생성 및 규정 위반여부 검토
-   예: "영업방문 결과보고서 작성해줘"
-
-위 예시처럼 자유롭게 질문하시면 됩니다.`,
-      timestamp: new Date().toLocaleTimeString()
-    };
-    
-    setMessages([systemMessage]);
+    // 메시지를 비워서 예시 프롬프트가 표시되도록 함
+    setMessages([]);
     setCurrentChatId(chatId);
     setSessionId(newSessionId);
     
@@ -208,7 +184,7 @@ const ChatScreen = () => {
       id: chatId,
       sessionId: newSessionId,
       title: `채팅 ${new Date().toLocaleString()}`,
-      messages: [systemMessage],
+      messages: [],
       createdAt: new Date().toISOString()
     };
     
@@ -766,7 +742,45 @@ const ChatScreen = () => {
           </div>
 
           <div className="messages-container">
-            {messages.map((message, index) => (
+            {messages.length === 0 ? (
+              <div className="example-prompts-container">
+                <h2 className="welcome-title">무엇을 도와드릴까요?</h2>
+                <p className="welcome-subtitle">아래 예시를 클릭하거나 직접 질문해 주세요</p>
+                <div className="example-prompts-grid">
+                  <div className="prompt-card" onClick={() => setInputValue("최수아 직원의 이번달 실적을 분석해줘")}>
+                    <div className="prompt-icon">👥</div>
+                    <div className="prompt-text">최수아 직원의 이번달 실적을 분석해줘</div>
+                    <div className="prompt-category">직원 실적</div>
+                  </div>
+                  <div className="prompt-card" onClick={() => setInputValue("미라클신경과 거래처 매출 추이를 보여줘")}>
+                    <div className="prompt-icon">🏢</div>
+                    <div className="prompt-text">미라클신경과 거래처 매출 추이를 보여줘</div>
+                    <div className="prompt-category">거래처 분석</div>
+                  </div>
+                  <div className="prompt-card" onClick={() => setInputValue("영업방문 보고서를 작성해줘")}>
+                    <div className="prompt-icon">📄</div>
+                    <div className="prompt-text">영업방문 보고서를 작성해줘</div>
+                    <div className="prompt-category">문서 작성</div>
+                  </div>
+                  <div className="prompt-card" onClick={() => setInputValue("영업 규정 및 가이드라인을 찾아줘")}>
+                    <div className="prompt-icon">🔍</div>
+                    <div className="prompt-text">영업 규정 및 가이드라인을 찾아줘</div>
+                    <div className="prompt-category">정보 검색</div>
+                  </div>
+                  <div className="prompt-card" onClick={() => setInputValue("서부팀 전체 성과를 분석해줘")}>
+                    <div className="prompt-icon">📊</div>
+                    <div className="prompt-text">서부팀 전체 성과를 분석해줘</div>
+                    <div className="prompt-category">팀 성과</div>
+                  </div>
+                  <div className="prompt-card" onClick={() => setInputValue("제품설명회 신청서를 만들어줘")}>
+                    <div className="prompt-icon">📋</div>
+                    <div className="prompt-text">제품설명회 신청서를 만들어줘</div>
+                    <div className="prompt-category">문서 작성</div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              messages.map((message, index) => (
               <div key={index} className={`message ${message.type === 'user' ? 'user-message' : 'ai-message'}`}>
                 <div className="message-header">
                   <span className="message-sender">
@@ -955,7 +969,7 @@ const ChatScreen = () => {
                   )}
                 </div>
               </div>
-            ))}
+            )))}
             
             {isLoading && (
               <div className="message ai-message">

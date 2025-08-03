@@ -109,6 +109,13 @@ async def chat(request: ChatRequest) -> ChatResponse:
         logger.info(f"[CHAT] Router result: {result}")
         logger.info(f"[CHAT] Sub-agent result: {sub_result}")
         logger.info(f"[CHAT] Router requires_interrupt: {result.get('requires_interrupt')}, next_node: {result.get('next_node')}, doc_type: {result.get('doc_type')}")
+        logger.info(f"[CHAT] Router has response: {result.get('response') is not None}")
+        
+        # help_message 처리 (router에서 직접 반환하는 경우)
+        if result.get("response"):
+            logger.info(f"[CHAT] Returning help message from router")
+            response.response = result["response"]
+            return response
         
         # 인터럽트 처리를 먼저 확인
         if result.get("requires_interrupt"):
@@ -177,6 +184,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
                     "total_performance": sub_result.get("total_performance"),
                     "achievement_rate": sub_result.get("achievement_rate")
                 }
+            elif agent_type == "client_agent":
+                # client_agent 결과 처리
+                response.response = sub_result.get("response", "") or sub_result.get("report", "") or sub_result.get("analysis_result", "") or sub_result.get("result", "") or str(sub_result)
+                response.data = sub_result if isinstance(sub_result, dict) else {"result": sub_result}
+            elif agent_type == "search_agent":
+                # search_agent 결과 처리
+                response.response = sub_result.get("search_result", "") or sub_result.get("result", "") or str(sub_result)
+                response.data = sub_result if isinstance(sub_result, dict) else {"result": sub_result}
         
         
         else:
