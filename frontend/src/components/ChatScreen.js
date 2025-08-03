@@ -311,9 +311,13 @@ const ChatScreen = () => {
       
       if (activeThreadId) {
         // Resume API call for interactive responses
+        // Determine reply_type based on the current interactive state
+        const interruptType = sessionStorage.getItem(`interrupt_type_${sessionId}`);
+        const replyType = interruptType === 'verification' ? 'verification_reply' : 'user_reply';
+        
         requestBody = {
           user_reply: currentQuery,
-          reply_type: 'user_reply'
+          reply_type: replyType
         };
         
         response = await fetch(`http://localhost:8000/api/v1/resume/${sessionId}`, {
@@ -370,8 +374,9 @@ const ChatScreen = () => {
         
         // Handle interrupt responses (from chat or resume endpoints)
         if (data.requires_interrupt && data.data?.thread_id) {
-          // Store thread_id for subsequent resume calls
+          // Store thread_id and interrupt_type for subsequent resume calls
           sessionStorage.setItem(`thread_${sessionId}`, data.data.thread_id);
+          sessionStorage.setItem(`interrupt_type_${sessionId}`, data.data.interrupt_type || 'verification');
           
           const interactiveMessage = {
             type: 'interactive',
@@ -394,9 +399,10 @@ const ChatScreen = () => {
           return;
         }
         
-        // Clear thread_id if task is completed
+        // Clear thread_id and interrupt_type if task is completed
         if (!data.requires_interrupt && sessionStorage.getItem(`thread_${sessionId}`)) {
           sessionStorage.removeItem(`thread_${sessionId}`);
+          sessionStorage.removeItem(`interrupt_type_${sessionId}`);
         }
         
         // Docs Agent의 대화형 응답 처리 (legacy compatibility)

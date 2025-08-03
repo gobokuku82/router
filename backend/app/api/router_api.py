@@ -89,7 +89,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         
         # 라우터 에이전트 실행
         result = router_agent.run(
-            user_query=request.message,
+            user_input=request.message,
             session_id=request.session_id
         )
         
@@ -97,7 +97,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         response = ChatResponse(
             success=result.get("success", False),
             session_id=result.get("session_id"),
-            target_agent=result.get("target_agent"),
+            target_agent=result.get("agent_type"),  # agent_type으로 변경
             requires_interrupt=result.get("requires_interrupt", False),
             error=result.get("error")
         )
@@ -105,20 +105,27 @@ async def chat(request: ChatRequest) -> ChatResponse:
         # 하위 에이전트 결과 처리
         sub_result = result.get("result", {})
         
-        if sub_result.get("success"):
+        if sub_result and sub_result.get("success"):
             # 성공적인 결과
-            if sub_result.get("agent") == "docs_agent":
+            agent_type = result.get("agent_type")
+            
+            if agent_type == "docs_agent":
                 response.response = "문서가 성공적으로 생성되었습니다."
                 response.data = {
                     "document_path": sub_result.get("result", {}).get("final_doc"),
                     "document_type": sub_result.get("result", {}).get("doc_type"),
                     "filled_data": sub_result.get("result", {}).get("filled_data")
                 }
-            elif sub_result.get("agent") == "employee_agent":
-                response.response = sub_result.get("response", "")
-                response.data = sub_result.get("data", {})
+            elif agent_type == "employee_agent":
+                response.response = sub_result.get("report", "")
+                response.data = {
+                    "employee_name": sub_result.get("employee_name"),
+                    "period": sub_result.get("period"),
+                    "total_performance": sub_result.get("total_performance"),
+                    "achievement_rate": sub_result.get("achievement_rate")
+                }
         
-        elif sub_result.get("interrupted"):
+        elif sub_result and sub_result.get("interrupted"):
             # 인터럽트 발생
             response.requires_interrupt = True
             # Get the actual prompt from docs agent if available
@@ -132,8 +139,11 @@ async def chat(request: ChatRequest) -> ChatResponse:
             }
         
         else:
-            # 오류 발생
-            response.error = sub_result.get("error", "알 수 없는 오류")
+            # 오류 발생 또는 결과 없음
+            if sub_result:
+                response.error = sub_result.get("error", "알 수 없는 오류")
+            else:
+                response.error = result.get("error", "결과를 가져올 수 없습니다.")
         
         # 메타데이터 추가
         response.metadata = {
@@ -170,7 +180,7 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
         logger.info(f"[RESUME] 세션 재개: {session_id}")
         
         # 세션 재개
-        result = router_agent.resume_session(
+        result = router_agent.resume(
             session_id=session_id,
             user_reply=request.user_reply,
             reply_type=request.reply_type
@@ -186,9 +196,10 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
         if result.get("success"):
             # 성공적으로 완료
             response.response = "처리가 완료되었습니다."
+            result_data = result.get("result") or {}
             response.data = {
-                "final_doc": result.get("result", {}).get("final_doc"),
-                "filled_data": result.get("result", {}).get("filled_data")
+                "final_doc": result_data.get("final_doc") if isinstance(result_data, dict) else None,
+                "filled_data": result_data.get("filled_data") if isinstance(result_data, dict) else None
             }
         
         elif result.get("interrupted"):
