@@ -16,6 +16,9 @@ import os
 
 from ..employee_agent.employee_agent import EnhancedEmployeeAgent
 from ..docs_agent import CreateDocumentAgent
+from ..client_agent import client_agent
+from ..search_agent import run as search_agent_run
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +43,11 @@ class RouterState(TypedDict):
     requires_interrupt: bool
     agent_type: Optional[str]
     thread_id: Optional[str]
+    
+    # 추가 정보 (docs_agent용)
+    next_node: Optional[str]
+    doc_type: Optional[str]
+    state_info: Optional[Dict[str, Any]]
 
 
 class RouterAgent:
@@ -51,13 +59,12 @@ class RouterAgent:
             "docs_agent": {
                 "instance": CreateDocumentAgent(),
                 "metadata": {
-                    "description": "문서 자동 생성 및 규정 검토를 담당합니다",
+                    "description": "문서 자동 생성 및 규정 검토를 담당합니다. 문서생성시 규정위반 여부도 검토합니다.",
                     "capabilities": [
                         "영업방문 결과보고서 작성",
                         "제품설명회 시행 신청서 작성",
                         "제품설명회 시행 결과보고서 작성",
-                        "템플릿 기반 문서 생성",
-                        "컴플라이언스 검토"
+
                     ],
                     "examples": [
                         "영업방문 보고서 작성해줘",
@@ -73,37 +80,36 @@ class RouterAgent:
                     "capabilities": [
                         "개인 실적 조회 및 분석",
                         "인사 이력, 직책, 소속 부서 확인",
-                        "조직도 조회",
                         "성과 평가 및 목표 달성률 분석",
                         "실적 트렌드 분석"
                     ],
                     "examples": [
-                        "김철수 실적 분석해줘",
-                        "영업팀 성과 보여줘",
-                        "이번달 실적 조회"
+                        "최수아 실적 분석해줘",
+                        "서부팀 성과 보여줘",
+                        "최수아 이번달 달성률이 얼마지?"
                     ]
                 }
             },
             "client_agent": {
-                "instance": None,  # 아직 미구현
+                "instance": client_agent.agent,
                 "metadata": {
-                    "description": "고객 및 거래처에 대한 정보를 제공합니다",
+                    "description": "고객 및 거래처에 대한 정보를 제공합니다. 테이블데이터에서 요청한 정보를 분석합니다. 사용자 질의를 바탕으로 필요한 tool을 호출합니다.",
                     "capabilities": [
-                        "병원, 약국 등 고객 정보 조회",
+                        "병원명,월별 실적 활동 정보 조회",
                         "매출 추이 분석",
-                        "거래 이력 조회",
+                        "기준점을 제시하면 다른 수치와 비교,분석",
                         "고객 등급 분류",
-                        "잠재 고객 분석"
+                        "병원 전체매출과 우리 매출 비교"
                     ],
                     "examples": [
-                        "삼성병원 거래 이력 조회",
-                        "A등급 고객 리스트",
-                        "이번달 신규 거래처"
+                        "미라클신경과 실적분석해줘",
+                        "미라클신경과와 우리가족의원 비교",
+                        "최근 3개월 실적 트렌드 분석"
                     ]
                 }
             },
             "search_agent": {
-                "instance": None,  # 아직 미구현
+                "instance": "search",  # 플래그로 사용
                 "metadata": {
                     "description": "내부 데이터베이스에서 정보 검색을 수행합니다",
                     "capabilities": [
@@ -180,6 +186,8 @@ class RouterAgent:
     def _execute_agent(self, agent_name: str, query: str) -> Dict[str, Any]:
         """에이전트 실행"""
         try:
+            logger.info(f"[EXECUTE_AGENT] Starting {agent_name} with query: {query[:50]}...")
+            
             config = self.agents_config.get(agent_name)
             if not config or not config["instance"]:
                 return {
@@ -192,6 +200,7 @@ class RouterAgent:
             
             # 현재 state에서 정보 추출
             current_state = getattr(self, 'current_state', {})
+            logger.info(f"[EXECUTE_AGENT] Current state keys: {list(current_state.keys()) if current_state else 'None'}")
             session_id = current_state.get("session_id")
             context = current_state.get("context", {})
             
@@ -199,25 +208,39 @@ class RouterAgent:
             if agent_name == "docs_agent":
                 # API 모드 설정
                 os.environ["NO_INPUT_MODE"] = "true"
+                logger.info(f"[EXECUTE_AGENT] API mode enabled for docs_agent")
                 try:
                     # docs_agent는 thread_id를 지원하지 않음
                     result = agent.run(user_input=query)
+                    logger.info(f"[EXECUTE_AGENT] docs_agent result keys: {list(result.keys()) if result else 'None'}")
                 finally:
                     # 환경 변수 복원
                     os.environ.pop("NO_INPUT_MODE", None)
                 
                 # 인터럽트 처리
                 if isinstance(result, dict) and result.get("interrupted"):
+                    logger.info(f"[EXECUTE_AGENT] Interrupt detected - next_node: {result.get('next_node')}, doc_type: {result.get('doc_type')}")
                     current_state["requires_interrupt"] = True
                     current_state["agent_type"] = agent_name
                     
+                    # 추가 정보를 result에 병합
+                    if result.get("next_node"):
+                        current_state["next_node"] = result["next_node"]
+                    if result.get("doc_type"):
+                        current_state["doc_type"] = result["doc_type"]
+                    if result.get("state_info"):
+                        current_state["state_info"] = result["state_info"]
+                    
                     # 세션 생성/업데이트
                     if session_id:
+                        logger.info(f"[EXECUTE_AGENT] Saving session for {session_id} with thread_id: {result.get('thread_id')}")
                         self.sessions[session_id] = {
                             "agent": agent_name,
                             "thread_id": result.get("thread_id"),
                             "active": True,
-                            "context": context
+                            "context": context,
+                            "next_node": result.get("next_node"),
+                            "doc_type": result.get("doc_type")
                         }
                 
                 return result
@@ -228,6 +251,22 @@ class RouterAgent:
                     result = agent.analyze_employee_performance(query)
                 else:
                     result = agent.run(query)
+                
+                current_state["agent_type"] = agent_name
+                return result
+            
+            elif agent_name == "client_agent":
+                # client_agent는 async 함수
+                logger.info(f"[EXECUTE_AGENT] Running client_agent with query: {query[:50]}...")
+                result = asyncio.run(client_agent.run(query, session_id or "default"))
+                
+                current_state["agent_type"] = agent_name
+                return result
+            
+            elif agent_name == "search_agent":
+                # search_agent는 async 함수
+                logger.info(f"[EXECUTE_AGENT] Running search_agent with query: {query[:50]}...")
+                result = asyncio.run(search_agent_run(query, session_id or "default"))
                 
                 current_state["agent_type"] = agent_name
                 return result
@@ -312,6 +351,7 @@ class RouterAgent:
         try:
             # 현재 상태 저장 (tool에서 접근용)
             self.current_state = state
+            logger.info(f"[ROUTE_NODE] Setting current_state with session_id: {state.get('session_id')}")
             
             # 메시지 생성
             messages = state.get("messages", [])
@@ -399,6 +439,9 @@ class RouterAgent:
     
     def _final_node(self, state: RouterState) -> RouterState:
         """최종 처리 노드"""
+        logger.info(f"[FINAL_NODE] Processing final node with requires_interrupt: {state.get('requires_interrupt')}")
+        logger.info(f"[FINAL_NODE] Current state keys: {list(state.keys())}")
+        
         # Tool 실행 결과 추출
         messages = state.get("messages", [])
         
@@ -411,13 +454,28 @@ class RouterAgent:
                 try:
                     # Tool 반환값 처리
                     if isinstance(msg.content, str):
-                        state["result"] = json.loads(msg.content)
+                        result = json.loads(msg.content)
                     else:
-                        state["result"] = msg.content
+                        result = msg.content
+                    
+                    state["result"] = result
                     
                     # Tool name에서 agent_type 추출
                     if msg.name and msg.name.startswith('call_'):
                         state["agent_type"] = msg.name.replace('call_', '')
+                    
+                    # 인터럽트 발생 시 추가 정보를 state에 병합
+                    if isinstance(result, dict) and result.get("interrupted"):
+                        logger.info(f"[FINAL_NODE] Interrupt in result - next_node: {result.get('next_node')}, doc_type: {result.get('doc_type')}")
+                        if result.get("thread_id"):
+                            state["thread_id"] = result["thread_id"]
+                        if result.get("next_node"):
+                            state["next_node"] = result["next_node"]
+                        if result.get("doc_type"):
+                            state["doc_type"] = result["doc_type"]
+                        if result.get("state_info"):
+                            state["state_info"] = result["state_info"]
+                        state["requires_interrupt"] = True
                     
                     break  # 첫 번째 ToolMessage를 찾으면 중단
                     
@@ -425,6 +483,9 @@ class RouterAgent:
                     state["result"] = {"content": msg.content}
                 except Exception as e:
                     logger.error(f"Tool message processing error: {e}")
+        
+        # 최종 상태 로깅
+        logger.info(f"[FINAL_NODE] Final state - requires_interrupt: {state.get('requires_interrupt')}, next_node: {state.get('next_node')}, doc_type: {state.get('doc_type')}")
         
         return state
     
@@ -445,7 +506,10 @@ class RouterAgent:
             error=None,
             requires_interrupt=False,
             agent_type=None,
-            thread_id=None
+            thread_id=None,
+            next_node=None,
+            doc_type=None,
+            state_info=None
         )
         
         try:
@@ -456,12 +520,18 @@ class RouterAgent:
             if final_state.get("error"):
                 return {
                     "success": False,
+                    "session_id": session_id,
                     "error": final_state["error"],
                     "requires_interrupt": False
                 }
             
             # 인터럽트 처리
             if final_state.get("requires_interrupt"):
+                result = final_state.get("result", {})
+                logger.info(f"[RUN] Interrupt detected - final_state keys: {list(final_state.keys())}")
+                logger.info(f"[RUN] final_state next_node: {final_state.get('next_node')}, doc_type: {final_state.get('doc_type')}")
+                logger.info(f"[RUN] result next_node: {result.get('next_node') if result else 'None'}, doc_type: {result.get('doc_type') if result else 'None'}")
+                
                 return {
                     "success": False,
                     "interrupted": True,
@@ -469,7 +539,10 @@ class RouterAgent:
                     "session_id": session_id,
                     "agent_type": final_state.get("agent_type"),
                     "requires_interrupt": True,
-                    "prompt": final_state.get("result", {}).get("prompt")
+                    "prompt": result.get("prompt") if result else None,
+                    "next_node": final_state.get("next_node") or (result.get("next_node") if result else None),
+                    "doc_type": final_state.get("doc_type") or (result.get("doc_type") if result else None),
+                    "state_info": final_state.get("state_info") or (result.get("state_info") if result else {})
                 }
             
             # 정상 결과
@@ -486,8 +559,27 @@ class RouterAgent:
             logger.error(f"Router execution error: {e}")
             return {
                 "success": False,
+                "session_id": session_id,
                 "error": str(e),
                 "requires_interrupt": False
+            }
+    
+    def get_session_status(self, session_id: str) -> Dict[str, Any]:
+        """세션 상태 조회"""
+        if session_id in self.sessions:
+            session_info = self.sessions[session_id]
+            return {
+                "exists": True,
+                "session_id": session_id,
+                "agent": session_info.get("agent"),
+                "thread_id": session_info.get("thread_id"),
+                "status": "active" if session_info.get("active") else "inactive"
+            }
+        else:
+            return {
+                "exists": False,
+                "session_id": session_id,
+                "message": "세션을 찾을 수 없습니다."
             }
     
     def resume(self, session_id: str, user_reply: str, reply_type: str = "user_reply") -> Dict[str, Any]:
@@ -530,7 +622,10 @@ class RouterAgent:
                         "thread_id": thread_id,
                         "session_id": session_id,
                         "prompt": result.get("prompt"),
-                        "requires_interrupt": True
+                        "requires_interrupt": True,
+                        "next_node": result.get("next_node"),
+                        "doc_type": result.get("doc_type"),
+                        "state_info": result.get("state_info", {})
                     }
                 
                 return result

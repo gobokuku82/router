@@ -99,13 +99,66 @@ async def chat(request: ChatRequest) -> ChatResponse:
             session_id=result.get("session_id"),
             target_agent=result.get("agent_type"),  # agent_type으로 변경
             requires_interrupt=result.get("requires_interrupt", False),
-            error=result.get("error")
+            error=result.get("error"),
+            data={}  # 초기화
         )
         
         # 하위 에이전트 결과 처리
         sub_result = result.get("result", {})
         
-        if sub_result and sub_result.get("success"):
+        logger.info(f"[CHAT] Router result: {result}")
+        logger.info(f"[CHAT] Sub-agent result: {sub_result}")
+        logger.info(f"[CHAT] Router requires_interrupt: {result.get('requires_interrupt')}, next_node: {result.get('next_node')}, doc_type: {result.get('doc_type')}")
+        
+        # 인터럽트 처리를 먼저 확인
+        if result.get("requires_interrupt"):
+            # router 레벨의 인터럽트 정보 사용
+            response.requires_interrupt = True
+            
+            # 상태 정보 추출 (router 레벨 우선, 없으면 sub_result 확인)
+            next_node = result.get("next_node") or (sub_result.get("next_node") if sub_result else None)
+            doc_type = result.get("doc_type") or (sub_result.get("doc_type") if sub_result else None)
+            state_info = result.get("state_info") or (sub_result.get("state_info", {}) if sub_result else {})
+            
+            logger.info(f"[INTERRUPT] next_node: {next_node}, doc_type: {doc_type}")
+            
+            response.data = {
+                "thread_id": result.get("thread_id") or (sub_result.get("thread_id") if sub_result else None),
+                "next_node": next_node,
+                "doc_type": doc_type,
+                "state_info": state_info
+            }
+            
+            # next_node로 정확한 상황 판단
+            if next_node == "receive_verification_input":
+                # 분류 검증 단계
+                response.response = f"분류된 문서 타입: {doc_type}\n\n위 분류 결과가 올바른가요?"
+                response.data["interrupt_type"] = "verification"
+                response.data["prompt_type"] = "verification"
+                
+            elif next_node == "receive_manual_doc_type_input":
+                # 수동 선택 단계
+                response.response = "문서 타입을 선택해주세요."
+                response.data["prompt_type"] = "manual_doc_selection"
+                response.data["options"] = [
+                    {"value": "1", "label": "영업방문 결과보고서"},
+                    {"value": "2", "label": "제품설명회 시행 신청서"},
+                    {"value": "3", "label": "제품설명회 시행 결과보고서"},
+                    {"value": "4", "label": "종료"}
+                ]
+                response.data["message"] = "올바른 문서 타입을 선택해주세요. 번호(1-4) 또는 문서명을 직접 입력할 수 있습니다."
+                
+            elif next_node == "receive_user_input":
+                # 필드 입력 단계
+                response.response = "필요한 정보를 입력해주세요."
+                response.data["interrupt_type"] = "data_input"
+                
+            else:
+                # 기본값
+                response.response = sub_result.get("prompt") if sub_result else "추가 정보가 필요합니다."
+                response.data["interrupt_type"] = "verification"
+                
+        elif sub_result and sub_result.get("success"):
             # 성공적인 결과
             agent_type = result.get("agent_type")
             
@@ -125,18 +178,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
                     "achievement_rate": sub_result.get("achievement_rate")
                 }
         
-        elif sub_result and sub_result.get("interrupted"):
-            # 인터럽트 발생
-            response.requires_interrupt = True
-            # Get the actual prompt from docs agent if available
-            docs_prompt = sub_result.get("prompt") or sub_result.get("message")
-            response.response = docs_prompt or "추가 정보가 필요합니다."
-            response.data = {
-                "thread_id": sub_result.get("thread_id"),
-                "interrupt_type": sub_result.get("interrupt_type", "verification"),
-                "step": sub_result.get("step"),
-                "options": sub_result.get("options")
-            }
         
         else:
             # 오류 발생 또는 결과 없음
@@ -186,6 +227,14 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
             reply_type=request.reply_type
         )
         
+        # result가 None인 경우 처리
+        if result is None:
+            logger.error(f"[RESUME] None 반환: session_id={session_id}")
+            result = {
+                "success": False,
+                "error": "세션 처리 중 오류가 발생했습니다."
+            }
+        
         # 응답 구성
         response = ChatResponse(
             success=result.get("success", False),
@@ -210,16 +259,64 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
                 "thread_id": result.get("thread_id"),
                 "next_node": result.get("next_node")
             }
+            
+            # next_node로 정확한 상황 판단
+            next_node = result.get("next_node")
+            doc_type = result.get("doc_type")
+            
+            if next_node == "receive_verification_input":
+                # 분류 검증 단계
+                response.response = f"분류된 문서 타입: {doc_type}\n\n위 분류 결과가 올바른가요?"
+                response.data["interrupt_type"] = "verification"
+                response.data["prompt_type"] = "verification"
+                response.data["doc_type"] = doc_type
+                
+            elif next_node == "receive_manual_doc_type_input":
+                # 수동 선택 단계
+                response.response = "문서 타입을 선택해주세요."
+                response.data["prompt_type"] = "manual_doc_selection"
+                response.data["options"] = [
+                    {"value": "1", "label": "영업방문 결과보고서"},
+                    {"value": "2", "label": "제품설명회 시행 신청서"},
+                    {"value": "3", "label": "제품설명회 시행 결과보고서"},
+                    {"value": "4", "label": "종료"}
+                ]
+                response.data["message"] = "올바른 문서 타입을 선택해주세요. 번호(1-4) 또는 문서명을 직접 입력할 수 있습니다."
+                
+            elif next_node == "receive_user_input":
+                # 필드 입력 단계
+                response.response = "필요한 정보를 입력해주세요."
+                response.data["interrupt_type"] = "data_input"
+                response.data["doc_type"] = doc_type
         else:
             # 실패 케이스 (규정 위반 등)
             response.requires_interrupt = False
-            response.response = result.get("message", "처리 중 오류가 발생했습니다.")
+            
+            # 에러 메시지 구성
+            error_msg = "처리 중 오류가 발생했습니다."
+            if result.get("error"):
+                error_msg = f"오류 발생: {result['error']}"
+            elif result.get("violation"):
+                error_msg = "규정 위반으로 문서 생성이 중단되었습니다."
+            elif result.get("result") is None:
+                error_msg = "문서 생성 실패: 결과가 없습니다."
+            
+            response.response = error_msg
             
             # result가 dict인지 확인하고 안전하게 처리
             if isinstance(result, dict):
+                # result.result에서 violation 정보 확인
+                inner_result = result.get("result", {})
+                violation = None
+                
+                if result.get("violation"):
+                    violation = result["violation"]
+                elif isinstance(inner_result, dict) and inner_result.get("violation"):
+                    violation = inner_result["violation"]
+                
                 response.data = {
-                    "error_type": "policy_violation" if result.get("violation") else "processing_error",
-                    "violation": result.get("violation"),
+                    "error_type": "policy_violation" if violation else "processing_error",
+                    "violation": violation,
                     "details": result.get("details", result.get("error"))
                 }
             else:

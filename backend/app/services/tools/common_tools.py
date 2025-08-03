@@ -158,7 +158,7 @@ def _check_phrase_against_regulations(phrase: str, search_results: list, llm: Ch
 
 분석 기준:
 1. 명확하게 규정 위반이 있는지 확인
-2. 위반 문제가 있어보이는 것도 위반여부 반드시 확인
+2. 위반 문제가 있어보이는 것이 아닌 명확하게 규정을 위반한것만 문제로 판단
 
 응답 형식:
 - 위반이나 문제가 없으면: "OK"

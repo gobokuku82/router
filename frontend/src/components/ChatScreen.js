@@ -313,7 +313,12 @@ const ChatScreen = () => {
         // Resume API call for interactive responses
         // Determine reply_type based on the current interactive state
         const interruptType = sessionStorage.getItem(`interrupt_type_${sessionId}`);
-        const replyType = interruptType === 'verification' ? 'verification_reply' : 'user_reply';
+        let replyType = 'user_reply';
+        if (interruptType === 'verification') {
+          replyType = 'verification_reply';
+        } else if (interruptType === 'manual_doc_selection') {
+          replyType = 'verification_reply';  // manual_doc_selection도 verification_reply로 처리
+        }
         
         requestBody = {
           user_reply: currentQuery,
@@ -352,6 +357,61 @@ const ChatScreen = () => {
       let botResponseContent = '';
       let responseAgent = 'Router Agent';
       
+      // Handle interrupt responses first (both success and failure cases)
+      if (data.requires_interrupt && data.data?.thread_id) {
+        // Store thread_id and interrupt_type for subsequent resume calls
+        sessionStorage.setItem(`thread_${sessionId}`, data.data.thread_id);
+        sessionStorage.setItem(`interrupt_type_${sessionId}`, data.data.interrupt_type || 'verification');
+        
+        // Check if this is a manual document type selection
+        if (data.data.prompt_type === 'manual_doc_selection' && data.data.options) {
+          // Update interrupt type for manual selection
+          sessionStorage.setItem(`interrupt_type_${sessionId}`, 'manual_doc_selection');
+          
+          const interactiveMessage = {
+            type: 'interactive',
+            content: data.response || '문서 타입을 선택해주세요.',
+            timestamp: new Date().toLocaleTimeString(),
+            agent: data.target_agent || 'Docs Agent',
+            waiting_for_input: true,
+            input_type: 'manual_selection',
+            options: data.data.options.map(opt => opt.label),
+            thread_id: data.data.thread_id
+          };
+          
+          const messagesWithInteractive = [...newMessages, interactiveMessage];
+          setMessages(messagesWithInteractive);
+          saveMessageToHistory(messagesWithInteractive);
+          
+          // 입력 대기 상태로 설정
+          setIsWaitingForDocsInput(true);
+          setDocsInputType('manual_selection');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Regular interrupt handling
+        const interactiveMessage = {
+          type: 'interactive',
+          content: data.response || '추가 정보가 필요합니다.',
+          timestamp: new Date().toLocaleTimeString(),
+          agent: data.target_agent || 'Docs Agent',
+          waiting_for_input: true,
+          input_type: data.data.interrupt_type || 'verification',
+          thread_id: data.data.thread_id
+        };
+        
+        const messagesWithInteractive = [...newMessages, interactiveMessage];
+        setMessages(messagesWithInteractive);
+        saveMessageToHistory(messagesWithInteractive);
+        
+        // 입력 대기 상태로 설정
+        setIsWaitingForDocsInput(true);
+        setDocsInputType(data.data.interrupt_type || 'verification');
+        setIsLoading(false);
+        return;
+      }
+      
       if (data.success) {
         // Router 에이전트에서 사용자 선택이 필요한 경우
         if (data.needs_user_selection) {
@@ -369,33 +429,6 @@ const ChatScreen = () => {
           const messagesWithSelection = [...newMessages, selectionMessage];
           setMessages(messagesWithSelection);
           saveMessageToHistory(messagesWithSelection);
-          return;
-        }
-        
-        // Handle interrupt responses (from chat or resume endpoints)
-        if (data.requires_interrupt && data.data?.thread_id) {
-          // Store thread_id and interrupt_type for subsequent resume calls
-          sessionStorage.setItem(`thread_${sessionId}`, data.data.thread_id);
-          sessionStorage.setItem(`interrupt_type_${sessionId}`, data.data.interrupt_type || 'verification');
-          
-          const interactiveMessage = {
-            type: 'interactive',
-            content: data.response || '추가 정보가 필요합니다.',
-            timestamp: new Date().toLocaleTimeString(),
-            agent: data.target_agent || 'Docs Agent',
-            waiting_for_input: true,
-            input_type: data.data.interrupt_type || 'verification',
-            thread_id: data.data.thread_id
-          };
-          
-          const messagesWithInteractive = [...newMessages, interactiveMessage];
-          setMessages(messagesWithInteractive);
-          saveMessageToHistory(messagesWithInteractive);
-          
-          // 입력 대기 상태로 설정
-          setIsWaitingForDocsInput(true);
-          setDocsInputType(data.data.interrupt_type || 'verification');
-          setIsLoading(false);
           return;
         }
         
@@ -894,7 +927,7 @@ const ChatScreen = () => {
                                   }}
                                   disabled={isLoading}
                                 >
-                                  {option}
+                                  {idx + 1}. {option}
                                 </button>
                               ))}
                             </div>
