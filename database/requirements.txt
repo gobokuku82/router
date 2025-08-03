@@ -1,0 +1,5 @@
+# 기본 의존성
+-r requirements-base.txt
+
+# ML 의존성
+-r requirements-ml.txt

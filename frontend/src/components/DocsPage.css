@@ -1,0 +1,278 @@
+.docs-page {
+  display: flex;
+  height: calc(100vh - 100px);
+  background-color: #f8f9fa;
+  padding: 0;
+}
+
+/* Left Sidebar */
+.docs-sidebar {
+  width: 300px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e9ecef;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.docs-sidebar h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.new-doc-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 12px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 30px;
+  transition: background-color 0.3s;
+}
+
+.new-doc-btn:hover {
+  background: #0056b3;
+}
+
+.plus-icon {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.existing-docs h3 {
+  margin: 0 0 15px 0;
+  color: #666;
+  font-size: 1rem;
+}
+
+.doc-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  margin-bottom: 8px;
+}
+
+.doc-item:hover {
+  background-color: #e9ecef;
+}
+
+.doc-icon {
+  font-size: 1rem;
+}
+
+.doc-name {
+  flex: 1;
+  font-size: 0.9rem;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doc-arrow {
+  color: #999;
+  font-size: 0.8rem;
+}
+
+.no-docs {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}
+
+.no-docs p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Center Content Area */
+.docs-main {
+  flex: 1;
+  padding: 30px;
+  background-color: white;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+}
+
+.document-content h1 {
+  margin: 0 0 30px 0;
+  color: #333;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.document-body {
+  flex: 1;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  min-height: 400px;
+}
+
+/* Right Panel - AI Assistant */
+.docs-ai-panel {
+  width: 350px;
+  background-color: #f8f9fa;
+  border-left: 1px solid #e9ecef;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.docs-ai-panel h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 1.3rem;
+}
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-message {
+  align-items: flex-end;
+  background-color: #6c5ce7;
+  color: white;
+  padding: 12px 16px;
+  border-radius: 18px;
+  max-width: 80%;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ai-message {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+}
+
+.ai-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.message-content {
+  flex: 1;
+  background-color: white;
+  color: #333;
+  border: 1px solid #e9ecef;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.ai-prompts {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.ai-prompts p {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #333;
+}
+
+.ai-prompts ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ai-prompts li {
+  margin-bottom: 4px;
+  color: #666;
+}
+
+/* Input Area */
+.input-area {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.message-input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.message-input:focus {
+  border-color: #007bff;
+}
+
+.send-button {
+  background: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+}
+
+.send-button:hover {
+  background: #5a4fd8;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .docs-sidebar {
+    width: 250px;
+  }
+  
+  .docs-ai-panel {
+    width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .docs-page {
+    flex-direction: column;
+  }
+  
+  .docs-sidebar,
+  .docs-ai-panel {
+    width: 100%;
+    height: auto;
+  }
+  
+  .docs-main {
+    min-height: 300px;
+  }
+} 

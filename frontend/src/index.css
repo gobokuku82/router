@@ -1,0 +1,112 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* 다크 테마 스타일 */
+body.dark-theme {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+body.dark-theme .App {
+  background-color: #1a1a1a;
+}
+
+body.dark-theme .main-content {
+  background-color: #2d2d2d;
+}
+
+body.dark-theme .sidebar {
+  background-color: #2d2d2d;
+  border-right-color: #404040;
+}
+
+body.dark-theme .sidebar-header h2 {
+  color: #ffffff;
+}
+
+body.dark-theme .nav-item {
+  color: #cccccc;
+}
+
+body.dark-theme .nav-item:hover {
+  background-color: #404040;
+  color: #ffffff;
+}
+
+body.dark-theme .nav-item.active {
+  background-color: #6f42c1;
+  color: white;
+}
+
+body.dark-theme .dashboard,
+body.dark-theme .search-page,
+body.dark-theme .docs-page,
+body.dark-theme .client-page,
+body.dark-theme .schedule-page {
+  background-color: #2d2d2d;
+  color: #ffffff;
+}
+
+body.dark-theme .dashboard-header h1,
+body.dark-theme .search-header h1,
+body.dark-theme .docs-header h1,
+body.dark-theme .client-header h1,
+body.dark-theme .schedule-header h1 {
+  color: #ffffff;
+}
+
+body.dark-theme .dashboard-header p,
+body.dark-theme .search-header p,
+body.dark-theme .docs-header p,
+body.dark-theme .client-header p,
+body.dark-theme .schedule-header p {
+  color: #cccccc;
+}
+
+body.dark-theme .summary-card,
+body.dark-theme .stat-card,
+body.dark-theme .search-filters,
+body.dark-theme .search-results,
+body.dark-theme .docs-sidebar,
+body.dark-theme .doc-editor,
+body.dark-theme .doc-templates,
+body.dark-theme .client-stats,
+body.dark-theme .client-list,
+body.dark-theme .schedule-stats,
+body.dark-theme .schedule-list,
+body.dark-theme .schedule-calendar {
+  background-color: #404040;
+  color: #ffffff;
+}
+
+body.dark-theme .summary-card h3,
+body.dark-theme .stat-card h3,
+body.dark-theme .search-filters h3,
+body.dark-theme .search-results h3,
+body.dark-theme .docs-sidebar h3,
+body.dark-theme .doc-editor h3,
+body.dark-theme .doc-templates h3,
+body.dark-theme .client-list-header h3,
+body.dark-theme .schedule-list h3,
+body.dark-theme .schedule-calendar h3 {
+  color: #ffffff;
+}
+
+body.dark-theme .setting-label {
+  color: #ffffff;
+}
+
+body.dark-theme .setting-value {
+  color: #cccccc;
+}

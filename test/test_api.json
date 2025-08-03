@@ -1,0 +1,6 @@
+{
+  "question": "자사 약품 사용시 메리트를 소개하였음",
+  "top_k": 5,
+  "include_summary": true,
+  "include_sources": true
+}

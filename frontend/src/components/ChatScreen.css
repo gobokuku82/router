@@ -1,0 +1,496 @@
+/* Chat Screen - 고정 레이아웃 */
+.chat-screen {
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: row;
+  background-color: #f8f9fa;
+  overflow: hidden;
+}
+
+/* Chat Management Panel - 전체 높이 */
+.chat-panel {
+  width: 280px;
+  background-color: white;
+  border-right: 1px solid #e9ecef;
+  flex-shrink: 0;
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Main Container */
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-management {
+  padding: 20px;
+}
+
+.chat-management h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.new-chat-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-bottom: 15px;
+  transition: background-color 0.3s;
+  font-weight: 500;
+}
+
+.new-chat-btn:hover {
+  background-color: #0056b3;
+}
+
+.chat-controls {
+  margin-bottom: 20px;
+}
+
+.clear-chat-btn {
+  width: 100%;
+  padding: 8px 12px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background-color 0.3s;
+}
+
+.clear-chat-btn:hover {
+  background-color: #c82333;
+}
+
+.chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border: 1px solid transparent;
+}
+
+.chat-item:hover {
+  background-color: #f8f9fa;
+}
+
+.chat-item.active {
+  background-color: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.chat-icon {
+  font-size: 1rem;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.chat-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-title-text {
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.chat-date {
+  font-size: 0.75rem;
+  color: #666;
+}
+
+/* Main Chat Area */
+.chat-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: white;
+  overflow: hidden;
+}
+
+.chat-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 30px;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+  background-color: white;
+}
+
+.chat-title h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.agent-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.agent-selector label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.agent-select {
+  padding: 6px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background-color: white;
+  cursor: pointer;
+}
+
+/* 현재 세션 에이전트 정보 */
+.current-agent-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.agent-badge {
+  background-color: #e8f5e8;
+  color: #2d5a2d;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  border: 1px solid #c3e6c3;
+}
+
+.reset-agent-btn {
+  background-color: #f8f9fa;
+  color: #6c757d;
+  border: 1px solid #dee2e6;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reset-agent-btn:hover {
+  background-color: #e9ecef;
+  color: #495057;
+  border-color: #adb5bd;
+}
+
+/* Messages Container - 스크롤 가능 */
+.messages-container {
+  flex: 1;
+  padding: 20px 30px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.message {
+  max-width: 75%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  word-wrap: break-word;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.ai-message {
+  align-self: flex-start;
+  background-color: #f1f3f4;
+  color: #202124;
+  border-bottom-left-radius: 6px;
+}
+
+.user-message {
+  align-self: flex-end;
+  background-color: #1a73e8;
+  color: white;
+  border-bottom-right-radius: 6px;
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.message-sender {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #666;
+}
+
+.user-message .message-sender {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-time {
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.user-message .message-time {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.message-content {
+  line-height: 1.5;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  font-size: 0.95rem;
+}
+
+.typing-indicator {
+  display: inline-block;
+  color: #666;
+}
+
+.typing-indicator span {
+  animation: blink 1.4s infinite both;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0; }
+  40% { opacity: 1; }
+}
+
+/* Input Area - 고정 */
+.message-input-container {
+  padding: 15px 30px;
+  border-top: 1px solid #e9ecef;
+  flex-shrink: 0;
+  background-color: white;
+}
+
+.selected-agent-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 0.85rem;
+}
+
+.agent-description {
+  color: #666;
+  font-style: italic;
+}
+
+.input-area {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.message-input {
+  flex: 1;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  outline: none;
+  resize: none;
+  max-height: 120px;
+  min-height: 44px;
+  font-family: inherit;
+}
+
+.message-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.15);
+}
+
+.send-button {
+  padding: 12px 24px;
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background-color: #1557b0;
+}
+
+.send-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* 스크롤바 스타일링 */
+.messages-container::-webkit-scrollbar,
+.chat-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.messages-container::-webkit-scrollbar-track,
+.chat-panel::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb,
+.chat-panel::-webkit-scrollbar-thumb {
+  background: #c1c1c1; 
+  border-radius: 3px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover,
+.chat-panel::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .chat-panel {
+    width: 240px;
+  }
+  
+  .chat-title {
+    padding: 12px 20px;
+  }
+  
+  .messages-container {
+    padding: 15px 20px;
+  }
+  
+  .message-input-container {
+    padding: 12px 20px;
+  }
+  
+  .message {
+    max-width: 85%;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-panel {
+    width: 200px;
+  }
+}
+
+/* 에이전트 선택 버튼 스타일 */
+.agent-selection-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.agent-selection-btn {
+  background: white;
+  border: 2px solid #e9ecef;
+  border-radius: 12px;
+  padding: 15px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  width: 100%;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.agent-selection-btn:hover:not(:disabled) {
+  border-color: #007bff;
+  background-color: #f8f9fa;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.agent-selection-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.agent-btn-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.agent-btn-description {
+  font-size: 0.85rem;
+  color: #666;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.agent-selection-btn:hover:not(:disabled) .agent-btn-title {
+  color: #007bff;
+}
+
+/* 선택 버튼 애니메이션 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.agent-selection-buttons .agent-selection-btn {
+  animation: fadeInUp 0.3s ease forwards;
+}
+
+.agent-selection-buttons .agent-selection-btn:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.agent-selection-buttons .agent-selection-btn:nth-child(3) {
+  animation-delay: 0.2s;
+}
+
+.agent-selection-buttons .agent-selection-btn:nth-child(4) {
+  animation-delay: 0.3s;
+} 
