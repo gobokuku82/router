@@ -1450,7 +1450,7 @@ class CreateDocumentAgent:
                     final_result = list(chunk.values())[-1]  # 마지막 결과 저장
             
             # 최종 상태 확인
-            if final_result:
+            if final_result is not None and final_result:
                 violation_text = final_result.get("violation", "")
                 has_no_violation = not self._is_actual_violation(violation_text)
                 
