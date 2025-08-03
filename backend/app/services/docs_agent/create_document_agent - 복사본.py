@@ -23,16 +23,6 @@ from tools.common_tools import check_policy_violation, separate_document_type_an
 
 load_dotenv()
 
-
-class UserInputRequired(Exception):
-    """API 모드에서 사용자 입력이 필요할 때 발생하는 예외"""
-    def __init__(self, prompt: str, thread_id: str, next_node: str = None):
-        self.prompt = prompt
-        self.thread_id = thread_id
-        self.next_node = next_node
-        super().__init__(prompt)
-
-
 class State(TypedDict):
     messages: List[HumanMessage]
     doc_type: Optional[str]
@@ -1345,9 +1335,6 @@ class CreateDocumentAgent:
                 print(f"\n[INTERRUPT] 인터럽트 발생 - 스레드 ID: {thread_id}")
                 return self._handle_interactive_mode(thread_id)
                 
-        except UserInputRequired as e:
-            # API 모드에서 사용자 입력 필요
-            return {"success": False, "interrupted": True, "thread_id": e.thread_id, "prompt": e.prompt}
         except Exception as e:
             print(f"\n[ERROR] 실행 중 오류: {e}")
             return {"success": False, "error": str(e)}
@@ -1368,9 +1355,6 @@ class CreateDocumentAgent:
         while True:
             try:
                 # 사용자 입력 받기
-                if os.getenv("NO_INPUT_MODE", "").lower() == "true":
-                    # API 모드에서는 예외 발생
-                    raise UserInputRequired("\n>>> ", thread_id)
                 user_response = input("\n>>> ")
                 
                 # 현재 상태 확인하여 입력 타입 결정
@@ -1403,9 +1387,6 @@ class CreateDocumentAgent:
                     print(f"\n[ERROR] 처리 실패: {resume_result}")
                     return {"success": False, "result": resume_result}
                     
-            except UserInputRequired as e:
-                # API 모드에서 사용자 입력 필요 - 바로 반환
-                return {"success": False, "interrupted": True, "thread_id": e.thread_id, "prompt": e.prompt}
             except KeyboardInterrupt:
                 print("\n\n[EXIT] 사용자가 중단했습니다.")
                 return {"success": False, "interrupted_by_user": True}
@@ -1476,9 +1457,6 @@ class CreateDocumentAgent:
                     print(f"최종 결과: {final_result}")
                     return {"success": False, "result": final_result}
                 
-        except UserInputRequired as e:
-            # API 모드에서 사용자 입력 필요
-            return {"success": False, "interrupted": True, "thread_id": e.thread_id, "prompt": e.prompt}
         except Exception as e:
             print(f"\n[ERROR] 재개 중 오류: {e}")
             import traceback

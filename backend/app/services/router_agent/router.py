@@ -12,6 +12,7 @@ import logging
 from datetime import datetime
 import uuid
 import json
+import os
 
 from ..employee_agent.employee_agent import EnhancedEmployeeAgent
 from ..docs_agent import CreateDocumentAgent
@@ -196,12 +197,14 @@ class RouterAgent:
             
             # 에이전트별 실행
             if agent_name == "docs_agent":
-                # thread_id 확인 (세션에 있을 수 있음)
-                thread_id = None
-                if session_id and session_id in self.sessions:
-                    thread_id = self.sessions[session_id].get("thread_id")
-                
-                result = agent.run(user_input=query, thread_id=thread_id)
+                # API 모드 설정
+                os.environ["NO_INPUT_MODE"] = "true"
+                try:
+                    # docs_agent는 thread_id를 지원하지 않음
+                    result = agent.run(user_input=query)
+                finally:
+                    # 환경 변수 복원
+                    os.environ.pop("NO_INPUT_MODE", None)
                 
                 # 인터럽트 처리
                 if isinstance(result, dict) and result.get("interrupted"):
@@ -359,10 +362,7 @@ class RouterAgent:
             # 에이전트별 처리
             if agent_name == "docs_agent":
                 agent = self.agents_config[agent_name]["instance"]
-                result = agent.run(
-                    user_input=state["user_input"],
-                    thread_id=session.get("thread_id")
-                )
+                result = agent.run(user_input=state["user_input"])
                 
                 # 결과 처리
                 if result.get("interrupted"):
@@ -503,7 +503,21 @@ class RouterAgent:
             if session_info["agent"] == "docs_agent":
                 thread_id = session_info["thread_id"]
                 agent = self.agents_config["docs_agent"]["instance"]
-                result = agent.resume(thread_id, user_reply, reply_type)
+                
+                # API 모드 설정
+                os.environ["NO_INPUT_MODE"] = "true"
+                try:
+                    result = agent.resume(thread_id, user_reply, reply_type)
+                finally:
+                    # 환경 변수 복원
+                    os.environ.pop("NO_INPUT_MODE", None)
+                
+                # result가 None인 경우 처리
+                if result is None:
+                    return {
+                        "success": False,
+                        "error": "문서 생성이 중단되었습니다."
+                    }
                 
                 # 완료 확인
                 if result.get("success"):
