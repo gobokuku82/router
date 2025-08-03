@@ -278,7 +278,7 @@ class RouterAgent:
             "target_agent": None,
             "sub_agent_state": None,
             "sub_agent_result": None,
-            "requires_interrupt": None,
+            "requires_interrupt": False,  # 기본값을 False로 설정
             "classification_confidence": None
         }
         

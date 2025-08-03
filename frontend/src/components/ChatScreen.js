@@ -303,19 +303,41 @@ const ChatScreen = () => {
     setDocsInputType(null);
 
     try {
-      // 항상 Router를 통해 전송하여 동적 라우팅 활성화
-      const requestBody = { 
-        message: currentQuery,
-        session_id: sessionId
-      };
+      let response;
+      let requestBody;
+      
+      // Check if we have an active thread_id (indicates we're in resume mode)
+      const activeThreadId = sessionStorage.getItem(`thread_${sessionId}`);
+      
+      if (activeThreadId) {
+        // Resume API call for interactive responses
+        requestBody = {
+          user_reply: currentQuery,
+          reply_type: 'user_reply'
+        };
+        
+        response = await fetch(`http://localhost:8000/api/v1/resume/${sessionId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+      } else {
+        // Normal chat API call
+        requestBody = { 
+          message: currentQuery,
+          session_id: sessionId
+        };
 
-      const response = await fetch('http://localhost:8000/api/v1/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
+        response = await fetch('http://localhost:8000/api/v1/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody)
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -346,7 +368,38 @@ const ChatScreen = () => {
           return;
         }
         
-        // Docs Agent의 대화형 응답 처리
+        // Handle interrupt responses (from chat or resume endpoints)
+        if (data.requires_interrupt && data.data?.thread_id) {
+          // Store thread_id for subsequent resume calls
+          sessionStorage.setItem(`thread_${sessionId}`, data.data.thread_id);
+          
+          const interactiveMessage = {
+            type: 'interactive',
+            content: data.response || '추가 정보가 필요합니다.',
+            timestamp: new Date().toLocaleTimeString(),
+            agent: data.target_agent || 'Docs Agent',
+            waiting_for_input: true,
+            input_type: data.data.interrupt_type || 'verification',
+            thread_id: data.data.thread_id
+          };
+          
+          const messagesWithInteractive = [...newMessages, interactiveMessage];
+          setMessages(messagesWithInteractive);
+          saveMessageToHistory(messagesWithInteractive);
+          
+          // 입력 대기 상태로 설정
+          setIsWaitingForDocsInput(true);
+          setDocsInputType(data.data.interrupt_type || 'verification');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Clear thread_id if task is completed
+        if (!data.requires_interrupt && sessionStorage.getItem(`thread_${sessionId}`)) {
+          sessionStorage.removeItem(`thread_${sessionId}`);
+        }
+        
+        // Docs Agent의 대화형 응답 처리 (legacy compatibility)
         if (data.agent === 'docs_agent' && data.waiting_for_input) {
           const interactiveMessage = {
             type: 'interactive',
@@ -393,6 +446,14 @@ const ChatScreen = () => {
             botResponseContent += `\n\n💾 파일 위치: ${data.file_path}`;
           }
         }
+        
+        // Handle completed data from resume endpoint
+        if (data.data?.final_doc) {
+          botResponseContent += '\n\n📄 생성된 문서가 저장되었습니다.';
+          if (data.data.final_doc) {
+            botResponseContent += `\n💾 파일 위치: ${data.data.final_doc}`;
+          }
+        }
       } else {
         botResponseContent = `❌ 오류 발생: ${data.error || data.message}`;
       }
@@ -423,6 +484,9 @@ const ChatScreen = () => {
       saveMessageToHistory(finalMessages);
     } finally {
       setIsLoading(false);
+      // Clear any pending interactive states on error
+      setIsWaitingForDocsInput(false);
+      setDocsInputType(null);
     }
   };
 

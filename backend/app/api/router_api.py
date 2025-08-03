@@ -121,10 +121,14 @@ async def chat(request: ChatRequest) -> ChatResponse:
         elif sub_result.get("interrupted"):
             # 인터럽트 발생
             response.requires_interrupt = True
-            response.response = "추가 정보가 필요합니다. /resume 엔드포인트를 사용하여 응답해주세요."
+            # Get the actual prompt from docs agent if available
+            docs_prompt = sub_result.get("prompt") or sub_result.get("message")
+            response.response = docs_prompt or "추가 정보가 필요합니다."
             response.data = {
                 "thread_id": sub_result.get("thread_id"),
-                "interrupt_type": "verification"  # 또는 다른 타입
+                "interrupt_type": sub_result.get("interrupt_type", "verification"),
+                "step": sub_result.get("step"),
+                "options": sub_result.get("options")
             }
         
         else:
@@ -145,6 +149,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
         return ChatResponse(
             success=False,
             session_id=request.session_id or str(uuid.uuid4()),
+            requires_interrupt=False,
             error=f"처리 중 오류가 발생했습니다: {str(e)}"
         )
 
@@ -194,6 +199,20 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
                 "thread_id": result.get("thread_id"),
                 "next_node": result.get("next_node")
             }
+        else:
+            # 실패 케이스 (규정 위반 등)
+            response.requires_interrupt = False
+            response.response = result.get("message", "처리 중 오류가 발생했습니다.")
+            
+            # result가 dict인지 확인하고 안전하게 처리
+            if isinstance(result, dict):
+                response.data = {
+                    "error_type": "policy_violation" if result.get("violation") else "processing_error",
+                    "violation": result.get("violation"),
+                    "details": result.get("details", result.get("error"))
+                }
+            else:
+                response.data = {"error_type": "unknown_error"}
         
         logger.info(f"[RESUME] 응답 완료: success={response.success}")
         return response
@@ -203,6 +222,7 @@ async def resume_session(session_id: str, request: ResumeRequest) -> ChatRespons
         return ChatResponse(
             success=False,
             session_id=session_id,
+            requires_interrupt=False,
             error=f"세션 재개 중 오류가 발생했습니다: {str(e)}"
         )
 
